@@ -121,25 +121,6 @@
             pointer-events: none;
             white-space: nowrap;
         }
-
-        /* Top header row sticky */
-        thead th {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background-color: #f8f9fa;
-}
-
-/* Freeze the first 3 left columns */
-td:nth-child(1), th:nth-child(1) { position: sticky; left: 0; z-index: 5; background: #fff; }
-td:nth-child(2), th:nth-child(2) { position: sticky; left: 160px; z-index: 5; background: #fff; }
-td:nth-child(3), th:nth-child(3) { position: sticky; left: 280px; z-index: 5; background: #fff; }
-
-/* Top-left corner header intersection (needs highest z-index) */
-thead th:nth-child(-n+3) {
-  z-index: 15;
-  background-color: #f8f9fa;
-}
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
