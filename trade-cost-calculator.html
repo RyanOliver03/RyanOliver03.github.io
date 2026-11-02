@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trade Cost Calculator</title>
+<meta name="description" content="Round-trip per-share commission and net P&amp;L calculator for multi-currency equity positions.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: ticket-style settings strip on top, position blotter in the middle, scenario ledger at the bottom */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5d6b7a; --line:#d5dce3;
+  --accent:#0b6e75; --accent-soft:#dcefef; --gain:#1d7a3e; --loss:#b4372f; --warn:#9a6a00; --warn-soft:#fbf1d8;
+  --display:"Schibsted Grotesk",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10161c; --surface:#18212a; --ink:#e4eaf0; --muted:#93a1af; --line:#2b3743;
+  --accent:#4fc1c6; --accent-soft:#16363a; --gain:#5fcf86; --loss:#f07a6f; --warn:#e7b850; --warn-soft:#3a2f14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10161c; --surface:#18212a; --ink:#e4eaf0; --muted:#93a1af; --line:#2b3743;
+  --accent:#4fc1c6; --accent-soft:#16363a; --gain:#5fcf86; --loss:#f07a6f; --warn:#e7b850; --warn-soft:#3a2f14; color-scheme:dark}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px;display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px}
+h1{font-family:var(--display);font-weight:800;font-size:28px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.back{display:inline-block;font-size:12.5px;color:var(--accent);text-decoration:none;margin-bottom:4px}
+.back:hover{text-decoration:underline}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+h2{font-family:var(--display);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.06em;margin:0;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:14px;min-width:0}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+input,select{font:inherit;font-family:var(--mono);font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:7px 8px;width:100%;box-sizing:border-box;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.fx{display:flex;flex-wrap:wrap;gap:10px}
+.fx label{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 2px 2px 8px}
+.fx input{width:96px;border:0;background:transparent;padding:5px 6px}
+.fxbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.live{display:flex;align-items:center;gap:6px;font-weight:500;cursor:pointer}
+.live input{width:auto;accent-color:var(--accent)}
+.fxstatus{font-size:12.5px;color:var(--muted);font-family:var(--mono)}
+.fxstatus.err{color:var(--loss)}
+.fxstatus.ok::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gain);margin-right:6px;vertical-align:1px}
+.targets{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:flex;align-items:center;background:var(--accent-soft);border-radius:999px;padding:2px 4px 2px 10px;font-family:var(--mono);font-weight:600;color:var(--accent)}
+.chip input{width:52px;border:0;background:transparent;padding:4px 2px;color:var(--accent);font-weight:600;text-align:right}
+.chip button{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px}
+button.btn{font:inherit;font-weight:600;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:4px;padding:6px 12px;cursor:pointer}
+button.btn:hover{background:var(--accent-soft)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;background:var(--surface)}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--bg);position:sticky;top:0}
+td{font-family:var(--mono);font-size:13px}
+th:first-child,td:first-child{text-align:left}
+td.in input{width:auto}
+td .tk{width:130px} td .px{width:110px} td .al{width:110px}
+td select{width:auto}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;font-family:var(--body)}
+.pill.ok{color:var(--gain);background:color-mix(in srgb,var(--gain) 14%,transparent)}
+.pill.hi{color:var(--warn);background:var(--warn-soft)}
+.pill.vhi{color:var(--loss);background:color-mix(in srgb,var(--loss) 14%,transparent)}
+.pos{color:var(--gain)} .neg{color:var(--loss)}
+.x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}
+.x:hover{color:var(--loss)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{border-left:3px solid var(--line);padding:4px 0 4px 12px}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:20px;font-weight:600}
+.stat .s{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.stat.tgt{border-left-color:var(--accent)}
+.note{font-size:12.5px;color:var(--muted);max-width:90ch;margin:0}
+.row-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="./">&larr; Global Equity Indices Trading Hours</a>
+      <h1>Trade Cost Calculator</h1>
+      <p class="sub">Per-share commission on a round trip (buy + sell), converted to USD, with net P&amp;L at each target move.</p>
+    </div>
+  </header>
+
+  <section class="panel" aria-labelledby="h-set">
+    <h2 id="h-set">Settings</h2>
+    <div class="settings">
+      <label class="f">Default allocation (USD)<input id="alloc" type="number" step="1000" min="0"></label>
+      <label class="f">Commission / share (USD)<input id="comm" type="number" step="0.001" min="0"></label>
+      <label class="f">Commission charged on
+        <select id="sides"><option value="2">Buy + sell (round trip)</option><option value="1">One side only</option></select></label>
+      <label class="f">Share rounding
+        <select id="round"><option value="floor">Round down (never exceed allocation)</option><option value="near">Round to nearest</option></select></label>
+    </div>
+    <div style="display:grid;gap:6px">
+      <span class="f" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">FX — local currency per 1 USD</span>
+      <div class="fx" id="fx"></div>
+      <div class="fxbar">
+        <label class="live"><input type="checkbox" id="live"> Live FX, refresh every 30 min</label>
+        <button class="btn" id="fxnow">Refresh now</button>
+        <span id="fxstatus" class="fxstatus" aria-live="polite"></span>
+      </div>
+    </div>
+    <div style="display:grid;gap:6px">
+      <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Target moves (%) — negative values show a stop-loss</span>
+      <div class="targets" id="targets"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-pos">
+    <div class="row-actions">
+      <h2 id="h-pos">Positions</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="add">Add position</button><button class="btn" id="reset">Reset to my 5 trades</button></div>
+    </div>
+    <div class="tbl"><table id="pt"><thead></thead><tbody></tbody></table></div>
+    <p class="note">Commission load = round-trip commission as a % of the position. It is also the move you need just to break even. Low-priced shares (under ~$2) get hit hardest by per-share pricing.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-sum">
+    <h2 id="h-sum">Portfolio</h2>
+    <div class="sum" id="sum"></div>
+    <div class="tbl"><table id="st"><thead></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<script>
+const DEFAULT={
+  alloc:200000, comm:0.005, sides:2, round:"floor",
+  fx:{USD:1,JPY:157.56,CNY:6.6523,TWD:32.63,HKD:7.77,KRW:1385,INR:88.5,EUR:0.896,GBP:0.747},
+  targets:[3,5,7],
+  rows:[
+    {t:"6702 JT",n:"Fujitsu",c:"JPY",p:3622,a:""},
+    {t:"002249 C2",n:"",c:"CNY",p:7.37,a:""},
+    {t:"2409 TT",n:"AUO Corp",c:"TWD",p:30.65,a:""},
+    {t:"8996 TT",n:"",c:"TWD",p:1435,a:""},
+    {t:"2368 TT",n:"",c:"TWD",p:1020,a:""}
+  ]};
+let S;
+try{S=JSON.parse(localStorage.getItem("tcc-v1"))}catch(e){}
+if(!S||!S.rows) S=structuredClone(DEFAULT);
+if(S.live===undefined) S.live=true;
+
+/* ---- Live FX ---- */
+const FX_EVERY=30*60*1000;
+const lowerMap=o=>Object.fromEntries(Object.entries(o||{}).map(([k,v])=>[k.toUpperCase(),+v]));
+/* fx.json is written by the GitHub Action (yfinance). If GitHub Pages is slow to redeploy,
+   add your raw URL here too, e.g. "https://raw.githubusercontent.com/<user>/<user>.github.io/main/fx.json" */
+const SITE_FX_URLS=["./fx.json"];
+const FX_MAX_AGE=4*24*3600*1000; // ignore fx.json if older than 4 days (Action stopped) and use the backups
+const FX_SOURCES=[
+  ...SITE_FX_URLS.map(u=>({name:"Yahoo Finance (yfinance)",url:u,
+   parse:j=>{if(!j||!j.rates)return null;const a=new Date(j.asOf||j.updated);return Date.now()-a>FX_MAX_AGE?null:{rates:j.rates,asOf:a}}})),
+  {name:"open.er-api.com",url:"https://open.er-api.com/v6/latest/USD",
+   parse:j=>j&&j.result==="success"?{rates:j.rates,asOf:new Date(j.time_last_update_unix*1000)}:null},
+  {name:"currency-api (jsDelivr)",url:"https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+   parse:j=>j&&j.usd?{rates:lowerMap(j.usd),asOf:new Date(j.date+"T00:00:00Z")}:null},
+  {name:"currency-api (pages.dev)",url:"https://latest.currency-api.pages.dev/v1/currencies/usd.json",
+   parse:j=>j&&j.usd?{rates:lowerMap(j.usd),asOf:new Date(j.date+"T00:00:00Z")}:null}
+];
+let fxBusy=false;
+function fxStatus(msg,cls=""){const el=$("fxstatus");el.textContent=msg;el.className="fxstatus "+cls}
+function fxStatusFromMeta(){
+  const m=S.fxMeta;
+  if(!S.live){fxStatus("Live updates off · using the rates above");return}
+  if(!m){fxStatus("Waiting for first update…");return}
+  const t=new Date(m.fetched).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  const d=new Date(m.asOf).toLocaleString([],{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  fxStatus(`Checked ${t} · rates as of ${d} · ${m.src}`,"ok");
+}
+async function refreshFx(){
+  if(fxBusy) return; fxBusy=true; fxStatus("Updating FX…");
+  for(const src of FX_SOURCES){
+    try{
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
+      const r=await fetch(src.url,{cache:"no-store",signal:ctl.signal}); clearTimeout(to);
+      if(!r.ok) continue;
+      const p=src.parse(await r.json()); if(!p||!p.rates) continue;
+      let n=0;
+      for(const k of Object.keys(S.fx)){ if(k!=="USD"&&p.rates[k]>0){S.fx[k]=+(+p.rates[k]).toPrecision(6);n++} }
+      if(!n) continue;
+      S.fxMeta={src:src.name,asOf:+p.asOf,fetched:Date.now()};
+      document.querySelectorAll("[data-fx]").forEach(el=>{if(document.activeElement!==el) el.value=S.fx[el.dataset.fx]});
+      update(); fxStatusFromMeta(); fxBusy=false; return;
+    }catch(e){}
+  }
+  fxBusy=false;
+  fxStatus("Couldn't reach the FX feeds · keeping the rates above · will retry in 30 min","err");
+}
+function fxDue(){return S.live&&(!S.fxMeta||Date.now()-S.fxMeta.fetched>=FX_EVERY-5000)}
+setInterval(()=>{if(fxDue()) refreshFx()},60*1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&fxDue()) refreshFx()});
+const save=()=>{try{localStorage.setItem("tcc-v1",JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const usd=(v,d=2)=>(v<0?"−$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=(v,d=3)=>(v<0?"−":"")+Math.abs(v).toFixed(d)+"%";
+const num=v=>Math.round(v).toLocaleString("en-US");
+
+function calc(r){
+  const fx=S.fx[r.c]||1, pu=(+r.p||0)/fx, alloc=r.a!==""&&r.a!=null?+r.a:+S.alloc;
+  let sh=pu>0?alloc/pu:0; sh=S.round==="floor"?Math.floor(sh):Math.round(sh);
+  const inv=sh*pu, perSide=sh*S.comm, comm=perSide*S.sides;
+  const tg=S.targets.map(t=>{const g=inv*t/100;return{t,g,n:g-comm,np:inv?(g-comm)/inv*100:0}});
+  return{pu,sh,inv,perSide,comm,load:inv?comm/inv*100:0,tg};
+}
+
+function renderSettings(){
+  $("alloc").value=S.alloc;$("comm").value=S.comm;$("sides").value=S.sides;$("round").value=S.round;
+  $("live").checked=!!S.live; fxStatusFromMeta();
+  $("fx").innerHTML=Object.keys(S.fx).filter(k=>k!=="USD").map(k=>`<label>${k}<input id="fx-${k}" data-fx="${k}" type="number" step="any" value="${S.fx[k]}"></label>`).join("");
+  $("targets").innerHTML=S.targets.map((t,i)=>`<span class="chip"><input id="tg-${i}" data-tg="${i}" type="number" step="0.5" value="${t}">%<button data-rmtg="${i}" aria-label="Remove ${t}% target">×</button></span>`).join("")+`<button class="btn" id="addtg">Add target</button>`;
+}
+
+function renderTable(){
+  const ccys=Object.keys(S.fx);
+  $("pt").querySelector("thead").innerHTML=`<tr><th>Ticker</th><th>Ccy</th><th>Entry (local)</th><th>Alloc USD</th><th>Price USD</th><th>Shares</th><th>Invested</th><th>Comm / side</th><th>Comm total</th><th>Load</th>${S.targets.map(t=>`<th>Net @ ${t}%</th>`).join("")}<th></th></tr>`;
+  $("pt").querySelector("tbody").innerHTML=S.rows.map((r,i)=>`<tr data-i="${i}">
+    <td class="in"><input class="tk" id="t-${i}" data-f="t" value="${r.t}" aria-label="Ticker"></td>
+    <td class="in"><select id="c-${i}" data-f="c" aria-label="Currency">${ccys.map(c=>`<option ${c===r.c?"selected":""}>${c}</option>`).join("")}</select></td>
+    <td class="in"><input class="px" id="p-${i}" data-f="p" type="number" step="any" value="${r.p}" aria-label="Entry price"></td>
+    <td class="in"><input class="al" id="a-${i}" data-f="a" type="number" step="1000" placeholder="${S.alloc}" value="${r.a??""}" aria-label="Allocation override"></td>
+    <td data-o="pu"></td><td data-o="sh"></td><td data-o="inv"></td><td data-o="ps"></td><td data-o="cm"></td><td data-o="ld"></td>
+    ${S.targets.map((t,j)=>`<td data-o="t${j}"></td>`).join("")}
+    <td><button class="x" data-rm="${i}" aria-label="Remove row">×</button></td></tr>`).join("");
+  update();
+}
+
+function update(){
+  let T={inv:0,comm:0,tg:S.targets.map(()=>({g:0,n:0}))};
+  $("pt").querySelectorAll("tbody tr").forEach(tr=>{
+    const i=+tr.dataset.i, r=S.rows[i], k=calc(r);
+    const set=(o,h)=>tr.querySelector(`[data-o="${o}"]`).innerHTML=h;
+    set("pu",usd(k.pu,4));set("sh",num(k.sh));set("inv",usd(k.inv));set("ps",usd(k.perSide));set("cm",usd(k.comm));
+    const cls=k.load<0.1?"ok":k.load<0.5?"hi":"vhi";
+    set("ld",`<span class="pill ${cls}">${pct(k.load)}</span>`);
+    k.tg.forEach((x,j)=>{set("t"+j,`<span class="${x.n>=0?"pos":"neg"}">${usd(x.n)}</span><br><small style="color:var(--muted)">${pct(x.np)}</small>`);T.tg[j].g+=x.g;T.tg[j].n+=x.n});
+    T.inv+=k.inv;T.comm+=k.comm;
+  });
+  $("sum").innerHTML=`<div class="stat"><div class="k">Total invested</div><div class="v">${usd(T.inv,0)}</div><div class="s">${S.rows.length} positions</div></div>
+   <div class="stat"><div class="k">Total commission</div><div class="v">${usd(T.comm)}</div><div class="s">${pct(T.inv?T.comm/T.inv*100:0)} of capital deployed</div></div>`+
+   S.targets.map((t,j)=>`<div class="stat tgt"><div class="k">Net @ ${t}%</div><div class="v ${T.tg[j].n>=0?"pos":"neg"}">${usd(T.tg[j].n,0)}</div><div class="s">${pct(T.inv?T.tg[j].n/T.inv*100:0)} net</div></div>`).join("");
+  $("st").querySelector("thead").innerHTML=`<tr><th>Scenario</th><th>Gross P&amp;L</th><th>Commission</th><th>Net P&amp;L</th><th>Net return</th><th>Commission share of gross</th></tr>`;
+  $("st").querySelector("tbody").innerHTML=S.targets.map((t,j)=>`<tr><td>All positions move ${t}%</td><td>${usd(T.tg[j].g)}</td><td class="neg">${usd(-T.comm)}</td><td class="${T.tg[j].n>=0?"pos":"neg"}">${usd(T.tg[j].n)}</td><td>${pct(T.inv?T.tg[j].n/T.inv*100:0)}</td><td>${T.tg[j].g>0?pct(T.comm/T.tg[j].g*100,1):"—"}</td></tr>`).join("");
+  save();
+}
+
+document.addEventListener("input",e=>{
+  const el=e.target;
+  if(el.id==="alloc"){S.alloc=+el.value||0;renderTable();return}
+  if(el.id==="comm"){S.comm=+el.value||0}
+  else if(el.id==="sides"){S.sides=+el.value}
+  else if(el.id==="round"){S.round=el.value}
+  else if(el.id==="live"){S.live=el.checked;fxStatusFromMeta();if(S.live)refreshFx()}
+  else if(el.dataset.fx){S.fx[el.dataset.fx]=+el.value||1;if(S.live){S.live=false;$("live").checked=false;fxStatus("Manual rate entered · live updates paused")}}
+  else if(el.dataset.tg!=null){S.targets[+el.dataset.tg]=+el.value||0;renderHeadOnly();return}
+  else if(el.dataset.f){const i=+el.closest("tr").dataset.i;S.rows[i][el.dataset.f]=el.dataset.f==="t"||el.dataset.f==="c"?el.value:(el.value===""?"":+el.value)}
+  update();
+});
+function renderHeadOnly(){
+  $("pt").querySelectorAll("thead th").forEach((th,ix)=>{const j=ix-10;if(j>=0&&j<S.targets.length)th.textContent=`Net @ ${S.targets[j]}%`});
+  update();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="add"){S.rows.push({t:"",n:"",c:"USD",p:"",a:""});renderTable()}
+  else if(b.id==="reset"){S=structuredClone(DEFAULT);S.live=true;renderSettings();renderTable();refreshFx()}
+  else if(b.id==="fxnow"){refreshFx()}
+  else if(b.id==="addtg"){S.targets.push(10);renderSettings();renderTable()}
+  else if(b.dataset.rmtg!=null){S.targets.splice(+b.dataset.rmtg,1);renderSettings();renderTable()}
+  else if(b.dataset.rm!=null){S.rows.splice(+b.dataset.rm,1);renderTable()}
+});
+renderSettings();renderTable();
+if(S.live) refreshFx();
+</script>
+</body>
+</html>

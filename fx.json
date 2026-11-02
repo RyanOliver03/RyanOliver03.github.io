@@ -1,0 +1,7 @@
+{
+  "base": "USD",
+  "source": "Yahoo Finance (yfinance)",
+  "asOf": "2026-10-30T21:00:00+00:00",
+  "updated": "2026-10-30T21:00:00+00:00",
+  "rates": {"JPY": 157.56, "CNY": 6.6523, "TWD": 32.63, "HKD": 7.77, "KRW": 1385, "INR": 88.5, "EUR": 0.896, "GBP": 0.747}
+}
